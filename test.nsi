@@ -1,4 +1,4 @@
-!addplugindir ".\plugins"
+!addplugindir ".\plugins\ansi"
 !include MUI2.nsh
 
 Name "test"
