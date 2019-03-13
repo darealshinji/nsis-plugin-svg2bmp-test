@@ -38,6 +38,31 @@
 //HINSTANCE g_hInstance;
 //HWND g_hwndParent;
 
+
+#ifdef STBI_WINDOWS_UTF8
+static char *wchar_to_utf8(wchar_t *input)
+{
+  char *buffer = NULL;
+
+  int bufferlen = WideCharToMultiByte(65001 /* UTF8 */, 0, input, -1, buffer, 0, NULL, NULL);
+  if (bufferlen == 0) {
+    return NULL;
+  }
+
+  buffer = malloc(bufferlen + 1);
+  if (!buffer) {
+    return NULL;
+  }
+
+  if (WideCharToMultiByte(65001 /* UTF8 */, 0, input, -1, buffer, bufferlen, NULL, NULL) == 0) {
+    free(buffer);
+    return NULL;
+  }
+  return buffer;
+}
+#endif
+
+
 __declspec(dllexport)
 void svg2bmp(HWND hwndParent,
              int string_size,
@@ -80,29 +105,21 @@ void svg2bmp(HWND hwndParent,
   set_w = popint();
   set_h = popint();
 
-#if defined(UNICODE) && defined(_UNICODE)
-  char *inUtf8 = malloc(string_size + 1);
+#ifdef STBI_WINDOWS_UTF8
+  char *inUtf8 = wchar_to_utf8(in);
   if (!inUtf8) {
     FREE();
     return;
   }
 
-  char *outUtf8 = malloc(string_size + 1);
+  char *outUtf8 = wchar_to_utf8(out);
   if (!outUtf8) {
     free(inUtf8);
     FREE();
     return;
   }
-
 # undef FREE
 # define FREE()  free(in); free(out); free(inUtf8); free(outUtf8);
-
-  if (!stbiw_convert_wchar_to_utf8(inUtf8, string_size, in) ||
-      !stbiw_convert_wchar_to_utf8(outUtf8, string_size, out))
-  {
-    FREE();
-    return;
-  }
 #else
 # define inUtf8 in
 # define outUtf8 out

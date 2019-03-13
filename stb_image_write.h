@@ -288,7 +288,7 @@ static void stbi__stdio_write(void *context, void *data, int size)
    fwrite(data,1,size,(FILE*) context);
 }
 
-#if defined(_WIN32) && defined(STBI_WINDOWS_UTF8)
+#if defined(_MSC_VER) && defined(STBI_WINDOWS_UTF8)
 #ifdef __cplusplus
 #define STBIW_EXTERN extern "C"
 #else

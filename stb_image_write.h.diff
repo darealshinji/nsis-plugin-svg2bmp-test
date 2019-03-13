@@ -1,17 +1,7 @@
-Enable stbiw_convert_wchar_to_utf8() on GCC builds.
 Set output format to RGBA bitmap.
 
 --- a/stb_image_write.h
 +++ b/stb_image_write.h
-@@ -288,7 +288,7 @@
-    fwrite(data,1,size,(FILE*) context);
- }
- 
--#if defined(_MSC_VER) && defined(STBI_WINDOWS_UTF8)
-+#if defined(_WIN32) && defined(STBI_WINDOWS_UTF8)
- #ifdef __cplusplus
- #define STBIW_EXTERN extern "C"
- #else
 @@ -472,11 +472,11 @@
  
  static int stbi_write_bmp_core(stbi__write_context *s, int x, int y, int comp, const void *data)
