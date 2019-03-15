@@ -1083,12 +1083,12 @@ error:
 }
 
 // We roll our own string to float because the std library one uses locale and messes things up.
-static double nsvg__atof(const char* s)
+static float nsvg__atof(const char* s)
 {
 	char* cur = (char*)s;
 	char* end = NULL;
-	double res = 0.0, sign = 1.0;
-	double intPart = 0.0, fracPart = 0.0;
+	float res = 0.0, sign = 1.0;
+	float intPart = 0.0, fracPart = 0.0;
 	char hasIntPart = 0, hasFracPart = 0;
 
 	// Parse optional sign
@@ -1103,9 +1103,9 @@ static double nsvg__atof(const char* s)
 	if (nsvg__isdigit(*cur)) {
 		// Parse digit sequence
 #ifdef _MSC_VER
-		intPart = (double)_strtoi64(cur, &end, 10);
+		intPart = (float)_strtoi64(cur, &end, 10);
 #else
-		intPart = (double)strtoll(cur, &end, 10);
+		intPart = (float)strtoll(cur, &end, 10);
 #endif
 		if (cur != end) {
 			res = intPart;
@@ -1120,12 +1120,12 @@ static double nsvg__atof(const char* s)
 		if (nsvg__isdigit(*cur)) {
 			// Parse digit sequence
 #ifdef _MSC_VER
-			fracPart = (double)_strtoi64(cur, &end, 10);
+			fracPart = (float)_strtoi64(cur, &end, 10);
 #else
-			fracPart = (double)strtoll(cur, &end, 10);
+			fracPart = (float)strtoll(cur, &end, 10);
 #endif
 			if (cur != end) {
-				res += fracPart / pow(10.0, (double)(end - cur));
+				res += fracPart / powf(10.0, (float)(end - cur));
 				hasFracPart = 1;
 				cur = end;
 			}
@@ -1138,11 +1138,11 @@ static double nsvg__atof(const char* s)
 
 	// Parse optional exponent
 	if (*cur == 'e' || *cur == 'E') {
-		double expPart = 0.0;
+		float expPart = 0.0;
 		cur++; // skip 'E'
-		expPart = (double)strtol(cur, &end, 10); // Parse digit sequence with sign
+		expPart = (float)strtol(cur, &end, 10); // Parse digit sequence with sign
 		if (cur != end) {
-			res *= pow(10.0, expPart);
+			res *= powf(10.0, expPart);
 		}
 	}
 
@@ -1507,7 +1507,7 @@ static int nsvg__parseTransformArgs(const char* str, float* args, int maxNa, int
 		if (*ptr == '-' || *ptr == '+' || *ptr == '.' || nsvg__isdigit(*ptr)) {
 			if (*na >= maxNa) return 0;
 			ptr = nsvg__parseNumber(ptr, it, 64);
-			args[(*na)++] = (float)nsvg__atof(it);
+			args[(*na)++] = nsvg__atof(it);
 		} else {
 			++ptr;
 		}
@@ -2225,7 +2225,7 @@ static void nsvg__parsePath(NSVGparser* p, const char** attr)
 			if (!*item) break;
 			if (nsvg__isnum(item[0])) {
 				if (nargs < 10)
-					args[nargs++] = (float)nsvg__atof(item);
+					args[nargs++] = nsvg__atof(item);
 				if (nargs >= rargs) {
 					switch (cmd) {
 						case 'm':
@@ -2482,7 +2482,7 @@ static void nsvg__parsePoly(NSVGparser* p, const char** attr, int closeFlag)
 				nargs = 0;
 				while (*s) {
 					s = nsvg__getNextPathItem(s, item);
-					args[nargs++] = (float)nsvg__atof(item);
+					args[nargs++] = nsvg__atof(item);
 					if (nargs >= 2) {
 						if (npts == 0)
 							nsvg__moveTo(p, args[0], args[1]);
