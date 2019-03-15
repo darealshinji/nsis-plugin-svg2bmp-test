@@ -28,9 +28,6 @@
 #define NANOSVGRAST_IMPLEMENTATION
 #include "nanosvgrast.h"
 
-#if defined(UNICODE) && defined(_UNICODE)
-# define STBI_WINDOWS_UTF8
-#endif
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"  // patched version
 
@@ -39,28 +36,44 @@
 //HWND g_hwndParent;
 
 
-#ifdef STBI_WINDOWS_UTF8
-static char *wchar_to_utf8(wchar_t *input)
+// based on nsvgParseFromFile()
+static NSVGimage *parseSvgFile(LPTSTR filename, const float dpi, const unsigned int maxSize)
 {
-  char *buffer = NULL;
+  FILE *fp = NULL;
+  size_t size;
+  char *data = NULL;
+  NSVGimage *image = NULL;
 
-  int bufferlen = WideCharToMultiByte(65001 /* UTF8 */, 0, input, -1, buffer, 0, NULL, NULL);
-  if (bufferlen == 0) {
-    return NULL;
-  }
+  fp = _tfopen(filename, _T("rb"));
+  if (!fp) goto HANDLE_ERROR;
+  fseek(fp, 0, SEEK_END);
+  size = ftell(fp);
+  if (size > maxSize) goto HANDLE_ERROR;
+  fseek(fp, 0, SEEK_SET);
+  data = malloc(size + 1);
+  if (data == NULL) goto HANDLE_ERROR;
+  if (fread(data, 1, size, fp) != size) goto HANDLE_ERROR;
+  data[size] = '\0';  // Must be null terminated.
+  fclose(fp);
+  image = nsvgParse(data, "px", dpi);
+  free(data);
 
-  buffer = malloc(bufferlen + 1);
-  if (!buffer) {
-    return NULL;
-  }
+  return image;
 
-  if (WideCharToMultiByte(65001 /* UTF8 */, 0, input, -1, buffer, bufferlen, NULL, NULL) == 0) {
-    free(buffer);
-    return NULL;
-  }
-  return buffer;
+HANDLE_ERROR:
+  if (fp) fclose(fp);
+  if (data) free(data);
+  if (image) nsvgDelete(image);
+  return NULL;
 }
-#endif
+
+
+static void write_bmp_file(void *context, void *data, int size)
+{
+  if (context && data && size > 0) {
+    fwrite(data, size, 1, (FILE *)context);
+  }
+}
 
 
 __declspec(dllexport)
@@ -79,71 +92,29 @@ void svg2bmp(HWND hwndParent,
   int set_w;         // arg3: output image width (optional)
   int set_h;         // arg4: output image height (optional)
 
-  FILE *fp;
-  NSVGimage *svg;
-  NSVGrasterizer *rast;
-  unsigned char *data;
+  const float dpi = 96.0;  // dpi value to render the image
+  const int max_filesize = 2*1024*1024;  // maximum input filesize (2MB)
+  const int comp = 4;  // RGBA
+
+  FILE *fp = NULL;
+  NSVGimage *svg = NULL;
+  NSVGrasterizer *rast = NULL;
+  unsigned char *img = NULL;
   double scale_x = 1.0, scale_y = 1.0;
-  long fsize;
   int w, h;
 
-#define FREE()  free(in); free(out);
-
-  in = malloc((string_size + 1) * sizeof(*in));
+  in = malloc((string_size + 1) * sizeof(LPTSTR));
   if (!in) return;
 
-  out = malloc((string_size + 1) * sizeof(*out));
-  if (!out) {
-    free(in);
-    return;
-  }
+  out = malloc((string_size + 1) * sizeof(LPTSTR));
+  if (!out) goto CLOSE;
 
-  if (popstring(in) == 1 || popstring(out) == 1) {
-    FREE();
-    return;
-  }
+  if (popstring(in) == 1 || popstring(out) == 1) goto CLOSE;
   set_w = popint();
   set_h = popint();
 
-#ifdef STBI_WINDOWS_UTF8
-  char *inUtf8 = wchar_to_utf8(in);
-  if (!inUtf8) {
-    FREE();
-    return;
-  }
-
-  char *outUtf8 = wchar_to_utf8(out);
-  if (!outUtf8) {
-    free(inUtf8);
-    FREE();
-    return;
-  }
-# undef FREE
-# define FREE()  free(in); free(out); free(inUtf8); free(outUtf8);
-#else
-# define inUtf8 in
-# define outUtf8 out
-#endif
-
-  fp = _tfopen(in, _T("rb"));
-  if (!fp) {
-    FREE();
-    return;
-  }
-
-  fseek(fp, 0, SEEK_END);
-  fsize = ftell(fp);
-
-  if (fclose(fp) != 0 || fsize > (2*1024*1024)) {
-    FREE();
-    return;
-  }
-
-  svg = nsvgParseFromFile(inUtf8, "px", 96.0);
-  if (!svg) {
-    FREE();
-    return;
-  }
+  svg = parseSvgFile(in, dpi, max_filesize);
+  if (!svg) goto CLOSE;
 
   w = (int)(svg->width + 0.5);
   h = (int)(svg->height + 0.5);
@@ -159,17 +130,24 @@ void svg2bmp(HWND hwndParent,
   }
 
   rast = nsvgCreateRasterizer();
-  data = malloc(w*h*4);
+  if (!rast) goto CLOSE;
 
-  if (rast && data) {
-    nsvgRasterizeXY(rast, svg, 0, 0, scale_x, scale_y, data, w, h, w*4);
-    stbi_write_bmp(outUtf8, w, h, 4, data);
-  }
+  img = malloc(w * h * comp);
+  if (!img) goto CLOSE;
 
+  fp = _tfopen(out, _T("wb"));
+  if (!fp) goto CLOSE;
+
+  nsvgRasterizeXY(rast, svg, 0, 0, scale_x, scale_y, img, w, h, w * comp);
+  stbi_write_bmp_to_func(write_bmp_file, (void *)fp, w, h, comp, img);
+
+CLOSE:
+  if (fp) fclose(fp);
   if (rast) nsvgDeleteRasterizer(rast);
   if (svg) nsvgDelete(svg);
-  if (data) free(data);
-  FREE();
+  if (img) free(img);
+  if (in) free(in);
+  if (out) free(out);
 }
 
 /*
