@@ -26,7 +26,7 @@
 #define NANOSVG_IMPLEMENTATION
 #include "nanosvg.h"  // patched version
 #define NANOSVGRAST_IMPLEMENTATION
-#include "nanosvgrast.h"
+#include "nanosvgrast.h"  // patched version
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"  // patched version
@@ -100,8 +100,14 @@ void svg2bmp(HWND hwndParent,
   float scale_x = 1.0f, scale_y = 1.0f;
   int w, h;
 
-  EXDLL_INIT();
-  //g_hwndParent = hwndParent;
+  // EXDLL_INIT()
+  g_stringsize=string_size;
+  g_stacktop=stacktop;
+  g_variables=variables;
+
+  // unused
+  (void)hwndParent;
+  (void)extra;
 
   in = malloc((string_size + 1) * sizeof(LPTSTR));
   if (!in) return;
