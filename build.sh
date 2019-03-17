@@ -5,7 +5,7 @@ CC="i686-w64-mingw32-gcc"
 #CC="i686-w64-mingw32.static-gcc"
 CC64="x86_64-w64-mingw32-gcc"
 #CC64="x86_64-w64-mingw32.static-gcc"
-CFLAGS="-Wall -O3 -ffast-math -ffunction-sections -fdata-sections"
+CFLAGS="-Wall -Wfloat-conversion -O3 -ffast-math -ffunction-sections -fdata-sections"
 LDFLAGS="-Wl,--gc-sections -static -s"
 
 set -x

@@ -24,7 +24,7 @@
 
 // Using FLTK's fork: https://github.com/fltk/nanosvg
 #define NANOSVG_IMPLEMENTATION
-#include "nanosvg.h"
+#include "nanosvg.h"  // patched version
 #define NANOSVGRAST_IMPLEMENTATION
 #include "nanosvgrast.h"
 
@@ -84,15 +84,12 @@ void svg2bmp(HWND hwndParent,
              extra_parameters *extra,
              ...)
 {
-  EXDLL_INIT();
-  //g_hwndParent = hwndParent;
-
   LPTSTR in = NULL;  // arg1: SVG input filename
   LPTSTR out = NULL; // arg2: BMP output filename
   int set_w;         // arg3: output image width (optional)
   int set_h;         // arg4: output image height (optional)
 
-  const float dpi = 96.0;  // dpi value to render the image
+  const float dpi = 96.0f;  // dpi value to render the image
   const int max_filesize = 2*1024*1024;  // maximum input filesize (2MB)
   const int comp = 4;  // RGBA
 
@@ -100,8 +97,11 @@ void svg2bmp(HWND hwndParent,
   NSVGimage *svg = NULL;
   NSVGrasterizer *rast = NULL;
   unsigned char *img = NULL;
-  double scale_x = 1.0, scale_y = 1.0;
+  float scale_x = 1.0f, scale_y = 1.0f;
   int w, h;
+
+  EXDLL_INIT();
+  //g_hwndParent = hwndParent;
 
   in = malloc((string_size + 1) * sizeof(LPTSTR));
   if (!in) return;
@@ -116,16 +116,16 @@ void svg2bmp(HWND hwndParent,
   svg = parseSvgFile(in, dpi, max_filesize);
   if (!svg) goto CLOSE;
 
-  w = (int)(svg->width + 0.5);
-  h = (int)(svg->height + 0.5);
+  w = (int)(svg->width + 0.5f);
+  h = (int)(svg->height + 0.5f);
 
   if (set_w > 0) {
-    scale_x = (double)set_w / (double)w;
+    scale_x = (float)set_w / (float)w;
     w = set_w;
   }
 
   if (set_h > 0) {
-    scale_y = (double)set_h / (double)h;
+    scale_y = (float)set_h / (float)h;
     h = set_h;
   }
 
@@ -138,7 +138,7 @@ void svg2bmp(HWND hwndParent,
   fp = _tfopen(out, _T("wb"));
   if (!fp) goto CLOSE;
 
-  nsvgRasterizeXY(rast, svg, 0, 0, scale_x, scale_y, img, w, h, w * comp);
+  nsvgRasterizeXY(rast, svg, 0.0f, 0.0f, scale_x, scale_y, img, w, h, w * comp);
   stbi_write_bmp_to_func(write_bmp_file, (void *)fp, w, h, comp, img);
 
 CLOSE:
